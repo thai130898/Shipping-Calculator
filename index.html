@@ -1,0 +1,1053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shipping Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; 
+        }
+        .container-app {
+            max-width: 1000px; 
+            margin: 2rem auto; 
+            padding: 2rem; 
+            background-color: white; 
+            border-radius: 12px; 
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); 
+        }
+        h1 {
+            color: #1e3a8a; 
+            font-size: 3.75rem; 
+            line-height: 1;   
+            font-weight: 800; 
+            margin-bottom: 3rem; 
+            text-align: center; 
+        }
+        h2.section-title { 
+            color: #1e3a8a; 
+            font-weight: 600; 
+            @apply text-xl mb-4 border-b pb-2; 
+        }
+
+        label.input-label { 
+            font-weight: 500; 
+            color: #374151; 
+            @apply block text-sm mb-1; 
+        }
+        .form-input, .form-select { 
+            width: 100%; 
+            padding: 0.65rem 0.75rem; 
+            border: 1px solid #d1d5db; 
+            border-radius: 8px; 
+            margin-top: 0.25rem; 
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); 
+            transition: border-color 0.2s; 
+        }
+        .form-input:focus, .form-select:focus { 
+            outline: none; 
+            border-color: #3b82f6; 
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3); 
+        }
+
+        .radio-label { @apply ml-2 block text-sm text-gray-700 cursor-pointer; } 
+        .shipment-type-radio { @apply focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-400 cursor-pointer; } 
+
+        .btn { 
+            padding: 0.75rem 1.5rem; 
+            border-radius: 8px; 
+            font-weight: 600; 
+            cursor: pointer; 
+            transition: background-color 0.2s, transform 0.1s; 
+            display: inline-flex; 
+            align-items: center; 
+            justify-content: center; 
+            border: none; 
+        }
+        .btn-primary { 
+            background-color: #2563eb; 
+            color: white; 
+        }
+        .btn-primary:hover { background-color: #1d4ed8; transform: translateY(-1px); } 
+
+        .btn-secondary { 
+            background-color: #6b7280; color: white; 
+        }
+        .btn-secondary:hover { background-color: #4b5563; transform: translateY(-1px); } 
+
+        .btn-danger { 
+            background-color: #ef4444; color: white; padding: 0.4rem 0.6rem; font-size: 0.7rem; line-height: 1; border-radius: 6px; 
+        }
+        .btn-danger:hover { background-color: #dc2626;} 
+
+        .btn-add-package { 
+             background-color: #10b981; color:white; padding: 0.5rem 1rem; font-size: 0.875rem; 
+        }
+        .btn-add-package:hover { background-color: #059669; } 
+
+        .form-section { 
+            margin-bottom: 2rem; 
+            padding: 1.5rem; 
+            border: 1px solid #e5e7eb; 
+            border-radius: 8px; 
+            background-color: #f9fafb; 
+        }
+
+        .results-card {
+            margin-top: 1.5rem; 
+            background-color: white;
+            padding: 1.5rem; 
+            border-radius: 0.75rem; 
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); 
+        }
+
+        .result-item-box {
+            padding: 0.75rem 1rem;    
+            border-radius: 8px;       
+            margin-bottom: 0.75rem;   
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            color: white; 
+        }
+
+        .result-item-box .result-label, 
+        #combinedWeightsDisplay .result-label-main { 
+            display: block;
+            font-weight: 500;     
+            font-size: 0.875rem;  
+            line-height: 1.25rem;
+        }
+        .result-item-box .result-label { color: white; } 
+        
+        .result-formula { 
+            display: block;
+            font-size: 0.75rem; 
+            line-height: 1rem;
+            font-style: italic;
+            opacity: 0.85;
+            margin-bottom: 0.25rem; 
+        }
+        .result-item-box .result-formula { color: white; } 
+
+
+        .result-item-box .result-value,
+        #combinedWeightsDisplay .result-value { 
+            display: block;
+            font-size: 1.25rem;   
+            line-height: 1.75rem;
+            font-weight: 600;     
+        }
+        .result-item-box .result-value { color: white; } 
+
+
+        .result-item-cbm { background-color: #2563eb; }
+        .result-item-freight-cost { background-color: #10b981; }
+        .result-item-container-rec { 
+            background-color: #14b8a6; 
+            text-align: left; 
+        }
+        #resultContainerRec {
+            white-space: pre-wrap; 
+            font-size: 0.875rem; 
+            line-height: 1.4;
+        }
+
+
+        #combinedWeightsDisplay {
+            /* bg-slate-50 rounded-lg shadow-sm border border-slate-200 mb-3 are applied in HTML */
+        }
+        #combinedWeightsDisplay .weight-section {
+            padding: 0.75rem 1rem;
+        }
+        #combinedWeightsDisplay .weight-section:not(:last-child) {
+            border-bottom: 1px solid #e2e8f0; 
+        }
+        
+        #combinedWeightsDisplay .result-label-main { color: #475569; }
+        #combinedWeightsDisplay .result-formula { color: #64748b; }
+        #combinedWeightsDisplay .result-value {
+            /* Colors for values are set directly in HTML with Tailwind classes */
+        }
+
+        #combinedWeightsDisplay .chargeable-weight-section {
+            background-color: #cffafe; 
+        }
+         #combinedWeightsDisplay .chargeable-weight-section .result-label-main {
+            color: #0891b2; 
+         }
+        #combinedWeightsDisplay .chargeable-weight-section .result-formula {
+            color: #0e7490; 
+        }
+        #combinedWeightsDisplay .chargeable-weight-section .result-value {
+            color: #155e75; 
+            font-weight: 700; 
+        }
+
+
+        .message-area { @apply mt-4 p-3 rounded-md text-sm; } 
+        .error-message { @apply bg-red-100 text-red-700 border border-red-300; } 
+        .info-message { @apply bg-blue-100 text-blue-700 border border-blue-300; } 
+
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; } 
+
+        .hidden-section { display: none !important; } 
+        .hidden { display: none; } 
+
+        .package-table {
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 0.5rem; 
+            table-layout: fixed; 
+        }
+        .package-table th, .package-table td { 
+            border: 1px solid #e5e7eb; 
+            padding: 0.5rem; 
+            font-size: 0.875rem; 
+            vertical-align: middle; 
+        }
+        .package-table th { 
+            background-color: #f3f4f6; 
+            font-weight: 600; 
+            color: #374151; 
+            text-align: center; 
+        }
+        .package-table td {
+             text-align: left; 
+        }
+        .package-table td input[type="number"].form-input { 
+            padding: 0.35rem 0.5rem; 
+            margin-top: 0; 
+            font-size: 0.875rem; 
+            border-radius: 6px; 
+            border: 1px solid #d1d5db; 
+        }
+        .package-weight-column {
+        }
+    </style>
+</head>
+<body class="antialiased"> 
+    <div class="container-app">
+        <h1>Shipping Calculator</h1> 
+        <form id="shippingCalculatorForm">
+            <div class="form-section">
+                <h2 class="section-title text-lg">Shipment & Units</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6"> 
+                    <div>
+                        <label class="input-label mb-2">Shipment Type:</label>
+                        <div class="grid grid-cols-2 gap-x-4 gap-y-2"> 
+                            <div><input id="shipmentSeaFCL" name="shipmentType" type="radio" value="SEA_FCL" checked class="shipment-type-radio"><label for="shipmentSeaFCL" class="radio-label">SEA (FCL)</label></div>
+                            <div><input id="shipmentSeaLCL" name="shipmentType" type="radio" value="SEA_LCL" class="shipment-type-radio"><label for="shipmentSeaLCL" class="radio-label">SEA (LCL)</label></div>
+                            <div><input id="shipmentAir" name="shipmentType" type="radio" value="AIR" class="shipment-type-radio"><label for="shipmentAir" class="radio-label">AIR</label></div>
+                            <div><input id="shipmentCourier" name="shipmentType" type="radio" value="COURIER" class="shipment-type-radio"><label for="shipmentCourier" class="radio-label">Courier</label></div>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="input-label mb-2">Unit System:</label>
+                        <div class="flex space-x-6"> 
+                            <div class="flex items-center"><input id="unitMetric" name="unitSystem" type="radio" value="metric" checked class="shipment-type-radio"><label for="unitMetric" class="radio-label">Metric (cm, kg)</label></div>
+                            <div class="flex items-center"><input id="unitImperial" name="unitSystem" type="radio" value="imperial" class="shipment-type-radio"><label for="unitImperial" class="radio-label">Imperial (inch, lb)</label></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h2 class="section-title text-lg">Package Details</h2>
+                <div class="overflow-x-auto"> 
+                    <table id="packageDetailTable" class="package-table">
+                        <colgroup> 
+                            <col style="width: 100px;"> 
+                            <col style="width: 100px;"> 
+                            <col style="width: 100px;"> 
+                            <col style="width: 80px;">  
+                            <col style="width: 100px;" id="colWeight"> 
+                            <col style="width: 80px;">  
+                        </colgroup>
+                        <thead id="packageTableHeaderContent">
+                        </thead>
+                        <tbody id="packageEntriesContainer">
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" id="addPackageBtn" class="btn btn-add-package w-auto mt-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                    Add Package Type
+                </button>
+            </div>
+
+            <div id="airCourierInputsSection" class="form-section hidden-section"> 
+                <h2 id="airCourierSectionTitle" class="section-title text-lg">Additional Details</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div id="dimFactorInputGroup" class="hidden-section"> 
+                        <label for="dimFactorNumberInput" class="input-label">
+                            Dimensional Factor <span id="labelFactorUnit">(cm³/kg)</span> 
+                        </label>
+                        <input type="number" step="any" min="0" name="dimFactorNumberInput" id="dimFactorNumberInput" class="form-input w-auto inline-block"> 
+                        <p id="dimFactorNote" class="mt-1 text-xs text-gray-500"></p> 
+                    </div>
+                    <div id="unitPriceInputGroup" class="hidden-section"> 
+                        <label for="unitPrice" id="labelUnitPrice" class="input-label">Unit Price ($ per kg)</label> 
+                        <input type="number" step="any" min="0" name="unitPrice" id="unitPrice" class="form-input" placeholder="e.g., 2.50">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8 flex flex-col sm:flex-row justify-end space-y-3 sm:space-y-0 sm:space-x-4"> 
+                <button type="button" id="resetButton" class="btn btn-secondary sm:w-auto"> 
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                    Reset
+                </button>
+                <button type="submit" class="btn btn-primary sm:w-auto"> 
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5 mr-2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.748 7.007A21.023 21.023 0 0 1 12 5.25c2.506 0 4.904.44 7.126 1.243M4.748 7.007C3.636 7.66 2.75 8.612 2.25 9.75c-.998 2.268-.998 4.732 0 7.001.437 1.002 1.125 1.863 2.008 2.573M4.748 7.007V4.5M19.252 7.007A21.023 21.023 0 0 0 12 5.25c-2.506 0-4.904.44-7.126 1.243m14.252-.001C20.364 7.66 21.25 8.612 21.75 9.75c.998 2.268.998 4.732 0 7.001a12.04 12.04 0 0 1-2.008 2.573M19.252 7.007V4.5M9.75 12.75H12m2.25 0H12m0 0V15m0-2.25V9.75M7.5 12h-.008v.008H7.5V12Zm0 3h.008v.008H7.5V15Zm0 3h.008v.008H7.5V18Zm2.25-3h.008v.008H9.75V15Zm0 3h.008v.008H9.75V18Zm2.25-3h.008v.008H12V15Zm0 3h.008v.008H12V18Zm2.25-3h.008v.008H14.25V15Zm0 3h.008v.008H14.25V18Zm2.25-3h.008v.008H16.5V15Zm0 3h.008v.008H16.5V18Z" /></svg>
+                    Calculate
+                </button>
+            </div>
+        </form>
+
+        <div id="messageArea" class="message-area hidden"></div>
+
+        <div id="resultsSection" class="results-card hidden"> 
+            <div> 
+                <div id="cbmResultItem" class="result-item-box result-item-cbm hidden"> 
+                    <span class="result-label">Total Volume (CBM):</span>
+                    <span class="result-formula">Sum of (L×W×H × Qty) / Divisor</span>
+                    <span id="resultCBM" class="result-value"></span>
+                </div>
+
+                <div id="combinedWeightsDisplay" class="bg-slate-50 rounded-lg shadow-sm border border-slate-200 mb-3 hidden">
+                    <div class="weight-section">
+                        <span class="result-label-main">Total Actual Weight:</span>
+                        <span class="result-formula">Sum of (Weight per pkg × Qty)</span>
+                        <span id="resultActualWeight" class="result-value text-orange-500"></span>
+                    </div>
+                    <div class="weight-section">
+                        <span class="result-label-main">Total Dimensional Weight:</span>
+                        <span class="result-formula">Sum of (L×W×H × Qty) / DimFactor</span>
+                        <span id="resultDimWeight" class="result-value text-purple-500"></span>
+                    </div>
+                    <div class="weight-section chargeable-weight-section rounded-b-lg"> 
+                        <span class="result-label-main">Chargeable Weight:</span>
+                        <span class="result-formula">Max(Actual Weight, Dimensional Weight)</span>
+                        <span id="resultChargeableWeight" class="result-value"></span>
+                    </div>
+                </div>
+
+                <div id="freightCostResultItem" class="result-item-box result-item-freight-cost hidden-section"> 
+                    <span class="result-label">Total Air Freight Cost:</span>
+                    <span class="result-formula">Chargeable Weight × Unit Price</span>
+                    <span id="resultFreightCost" class="result-value"></span>
+                </div>
+                <div id="containerRecResultItem" class="result-item-box result-item-container-rec hidden-section"> 
+                    <span class="result-label">Recommended Container(s):</span>
+                    <span class="result-formula">Heuristic packing based on CBM & package list</span>
+                    <div id="resultContainerRec" class="result-value"></div> </div>
+            </div>
+        </div>
+    </div>
+
+    <script defer> 
+        // --- Constants ---
+        const INCH_TO_CM = 2.54; 
+        const KG_TO_LB = 2.2046244201837775; 
+        const LB_TO_KG = 1 / KG_TO_LB; 
+        const CBM_DIVISOR_CM = 1000000; 
+        const CBM_DIVISOR_INCH = 61023.7; 
+        const CONTAINER_CAPACITIES = { '40HC': 62, '40DC': 52, '20DC': 22 }; 
+        const CONTAINER_ORDER = ['40HC', '40DC', '20DC']; // Order for initial greedy fill
+
+        // --- DOM Element References ---
+        const calculatorForm = document.getElementById('shippingCalculatorForm');
+        const shipmentTypeRadios = document.querySelectorAll('input[name="shipmentType"]');
+        const unitMetricRadio = document.getElementById('unitMetric');
+        const unitImperialRadio = document.getElementById('unitImperial');
+
+        const packageEntriesContainer = document.getElementById('packageEntriesContainer'); 
+        const addPackageBtn = document.getElementById('addPackageBtn');
+        const packageTableHeaderContent = document.getElementById('packageTableHeaderContent'); 
+        const colWeight = document.getElementById('colWeight'); 
+
+        const airCourierInputsSection = document.getElementById('airCourierInputsSection');
+        const airCourierSectionTitle = document.getElementById('airCourierSectionTitle');
+        const dimFactorInputGroup = document.getElementById('dimFactorInputGroup');
+        const dimFactorNumberInput = document.getElementById('dimFactorNumberInput');
+        const dimFactorNote = document.getElementById('dimFactorNote');
+        const unitPriceInputGroup = document.getElementById('unitPriceInputGroup');
+        const unitPriceInput = document.getElementById('unitPrice');
+        const resetButton = document.getElementById('resetButton');
+
+        const labelFactorUnit = document.getElementById('labelFactorUnit'); 
+        const labelUnitPrice = document.getElementById('labelUnitPrice'); 
+
+        const messageArea = document.getElementById('messageArea'); 
+        const resultsSection = document.getElementById('resultsSection'); 
+
+        const cbmResultItem = document.getElementById('cbmResultItem');
+        const resultCBM = document.getElementById('resultCBM');
+        
+        const combinedWeightsDisplay = document.getElementById('combinedWeightsDisplay');
+        const resultActualWeight = document.getElementById('resultActualWeight');
+        const resultDimWeight = document.getElementById('resultDimWeight');
+        const resultChargeableWeight = document.getElementById('resultChargeableWeight');
+        
+        const freightCostResultItem = document.getElementById('freightCostResultItem');
+        const resultFreightCost = document.getElementById('resultFreightCost');
+        const containerRecResultItem = document.getElementById('containerRecResultItem');
+        const resultContainerRec = document.getElementById('resultContainerRec'); 
+
+        // --- Utility Functions ---
+        function getSelectedShipmentType() {
+            return document.querySelector('input[name="shipmentType"]:checked').value;
+        }
+
+        function createPackageTableHeader() {
+            const isMetric = unitMetricRadio.checked;
+            const shipmentType = getSelectedShipmentType();
+            const showWeightHeader = shipmentType === 'AIR' || shipmentType === 'COURIER';
+
+            packageTableHeaderContent.innerHTML = ''; 
+            const headerRow = packageTableHeaderContent.insertRow(); 
+
+            headerRow.insertCell().textContent = isMetric ? 'Length (cm)' : 'Length (in)';
+            headerRow.insertCell().textContent = isMetric ? 'Width (cm)' : 'Width (in)';
+            headerRow.insertCell().textContent = isMetric ? 'Height (cm)' : 'Height (in)';
+            headerRow.insertCell().textContent = 'Qty';
+
+            const weightTh = headerRow.insertCell();
+            weightTh.textContent = isMetric ? 'Weight (kg)' : 'Weight (lb)';
+            weightTh.classList.add('package-weight-column'); 
+            weightTh.classList.toggle('hidden-section', !showWeightHeader); 
+            colWeight.style.display = showWeightHeader ? '' : 'none'; 
+
+            headerRow.insertCell().textContent = 'Action'; 
+            packageTableHeaderContent.classList.toggle('hidden-section', packageEntriesContainer.rows.length === 0);
+        }
+
+        function createPackageRow() {
+            const newRow = packageEntriesContainer.insertRow(); 
+            updatePackageRowContent(newRow); 
+            updateRemoveButtonsState(); 
+            if (packageEntriesContainer.rows.length > 0 && packageTableHeaderContent.rows.length === 0) {
+                createPackageTableHeader();
+            }
+        }
+
+        function updateRemoveButtonsState() {
+            const rows = packageEntriesContainer.rows;
+            for (let i = 0; i < rows.length; i++) {
+                const removeBtn = rows[i].querySelector('.remove-package-btn');
+                if (removeBtn) removeBtn.classList.toggle('hidden', rows.length <= 1); 
+            }
+            packageTableHeaderContent.classList.toggle('hidden-section', rows.length === 0);
+        }
+
+        packageEntriesContainer.addEventListener('click', function(e) {
+            if (e.target && e.target.classList.contains('remove-package-btn')) {
+                const rowToRemove = e.target.closest('tr'); 
+                if (rowToRemove) {
+                    rowToRemove.remove(); 
+                    updateRemoveButtonsState(); 
+                    clearAllResultsAndMessages(); 
+                }
+            }
+        });
+
+        addPackageBtn.addEventListener('click', createPackageRow);
+
+        function handleShipmentTypeChange() {
+            const shipmentType = getSelectedShipmentType();
+            const isMetric = unitMetricRadio.checked;
+
+            packageEntriesContainer.innerHTML = ''; 
+            createPackageRow(); 
+            if(dimFactorNumberInput) dimFactorNumberInput.value = getDefaultDimFactor(shipmentType, isMetric); 
+            if(unitPriceInput) unitPriceInput.value = ''; 
+            clearAllResultsAndMessages(); 
+
+            const isAirCourier = shipmentType === 'AIR' || shipmentType === 'COURIER';
+
+            airCourierInputsSection.classList.toggle('hidden-section', !isAirCourier);
+            if (isAirCourier) {
+                airCourierSectionTitle.textContent = shipmentType === 'AIR' ? 'Additional Details for AIR' : 'Additional Details for Courier';
+                dimFactorInputGroup.classList.remove('hidden-section'); 
+                unitPriceInputGroup.classList.toggle('hidden-section', shipmentType !== 'AIR'); 
+                if (shipmentType === 'AIR') {
+                    dimFactorNote.textContent = isMetric ? "Common factor for Air: 6000 cm³/kg." : "Common factor for Air: 166 inch³/lb.";
+                } else { 
+                     dimFactorNote.textContent = isMetric ? "Common factor for Courier: 5000 cm³/kg." : "Common factor for Courier: 139 inch³/lb.";
+                }
+            } else {
+                dimFactorInputGroup.classList.add('hidden-section');
+                unitPriceInputGroup.classList.add('hidden-section');
+            }
+            updateInputPlaceholdersAndFactors(); 
+            updateFormulaText(); 
+        }
+
+        function getDefaultDimFactor(shipmentType, isMetric) {
+            if (shipmentType === 'AIR') return isMetric ? '6000' : '166';
+            if (shipmentType === 'COURIER') return isMetric ? '5000' : '139';
+            return ''; 
+        }
+
+        function updatePackageRowContent(packageRowTr) {
+            const isMetric = unitMetricRadio.checked;
+            const shipmentType = getSelectedShipmentType();
+            const showWeight = shipmentType === 'AIR' || shipmentType === 'COURIER'; 
+
+            packageRowTr.innerHTML = ''; 
+
+            const cellL = packageRowTr.insertCell();
+            const cellW = packageRowTr.insertCell();
+            const cellH = packageRowTr.insertCell();
+            const cellQty = packageRowTr.insertCell();
+            const cellWt = packageRowTr.insertCell(); 
+            const cellAction = packageRowTr.insertCell(); 
+
+            cellL.innerHTML = `<input type="number" step="any" min="0" class="form-input package-length" placeholder="${isMetric ? '50' : '20'}">`;
+            cellW.innerHTML = `<input type="number" step="any" min="0" class="form-input package-width" placeholder="${isMetric ? '40' : '15'}">`;
+            cellH.innerHTML = `<input type="number" step="any" min="0" class="form-input package-height" placeholder="${isMetric ? '30' : '12'}">`;
+            cellQty.innerHTML = `<input type="number" step="1" min="1" class="form-input package-quantity" value="1" placeholder="1">`;
+
+            cellWt.classList.add('package-weight-column'); 
+            cellWt.classList.toggle('hidden-section', !showWeight); 
+            if (showWeight) {
+                cellWt.innerHTML = `<input type="number" step="any" min="0" class="form-input package-weight" placeholder="${isMetric ? '5' : '10'}">`;
+            }
+
+            cellAction.innerHTML = `<button type="button" class="btn btn-danger btn-sm remove-package-btn w-full">Remove</button>`;
+        }
+
+        function updateInputPlaceholdersAndFactors() { 
+            const isMetric = unitMetricRadio.checked;
+            const shipmentType = getSelectedShipmentType();
+
+            createPackageTableHeader(); 
+
+            const rows = packageEntriesContainer.rows;
+            for (let i = 0; i < rows.length; i++) {
+                const lVal = rows[i].querySelector('.package-length')?.value || '';
+                const wVal = rows[i].querySelector('.package-width')?.value || '';
+                const hVal = rows[i].querySelector('.package-height')?.value || '';
+                const qVal = rows[i].querySelector('.package-quantity')?.value || '1';
+                const weightVal = rows[i].querySelector('.package-weight')?.value || '';
+
+                updatePackageRowContent(rows[i]); 
+                if(rows[i].querySelector('.package-length')) rows[i].querySelector('.package-length').value = lVal;
+                if(rows[i].querySelector('.package-width')) rows[i].querySelector('.package-width').value = wVal;
+                if(rows[i].querySelector('.package-height')) rows[i].querySelector('.package-height').value = hVal;
+                if(rows[i].querySelector('.package-quantity')) rows[i].querySelector('.package-quantity').value = qVal;
+                if(rows[i].querySelector('.package-weight')) rows[i].querySelector('.package-weight').value = weightVal;
+            }
+            updateRemoveButtonsState(); 
+            if (shipmentType === 'AIR' || shipmentType === 'COURIER') {
+                labelFactorUnit.textContent = isMetric ? '(cm³/kg)' : '(inch³/lb)';
+                dimFactorNumberInput.value = getDefaultDimFactor(shipmentType, isMetric); 
+                 if (shipmentType === 'AIR') {
+                    labelUnitPrice.textContent = isMetric ? 'Unit Price ($ per kg)' : 'Unit Price ($ per lb)';
+                    unitPriceInput.placeholder = isMetric ? 'e.g., 2.50' : 'e.g., 1.15';
+                }
+            }
+        }
+        
+        function updateFormulaText() {
+            const isMetric = unitMetricRadio.checked;
+            const cbmFormula = isMetric ? "Sum of (L×W×H × Qty) / 1,000,000" : "Sum of (L×W×H × Qty) / 61,023.7 (after in to cm conversion for consistency, or use direct inch³ to m³)";
+            document.querySelector('#cbmResultItem .result-formula').textContent = cbmFormula;
+
+            const dimWeightFormula = isMetric ? "Sum of (L×W×H × Qty) / DimFactor (cm, kg)" : "Sum of (L×W×H × Qty) / DimFactor (in, lb)";
+            document.querySelector('#combinedWeightsDisplay .weight-section:nth-child(2) .result-formula').textContent = dimWeightFormula;
+        }
+
+
+        function validatePackageRow(packageRowTr, shipmentType) {
+            const l_input = packageRowTr.querySelector('.package-length');
+            const w_input = packageRowTr.querySelector('.package-width');
+            const h_input = packageRowTr.querySelector('.package-height');
+            const q_input = packageRowTr.querySelector('.package-quantity');
+            const weight_input_el = packageRowTr.querySelector('.package-weight');
+
+            const l_val = parseFloat(l_input.value);
+            const w_val = parseFloat(w_input.value);
+            const h_val = parseFloat(h_input.value);
+            const q_val = parseInt(q_input.value);
+
+            if (isNaN(l_val) || l_val <= 0 || isNaN(w_val) || w_val <= 0 || isNaN(h_val) || h_val <= 0) return "Enter valid positive dimensions for all packages.";
+            if (isNaN(q_val) || q_val <= 0 || !Number.isInteger(q_val)) return "Enter a valid positive whole number for quantity for all packages.";
+
+            const isWeightVisibleAndRequired = (shipmentType === 'AIR' || shipmentType === 'COURIER');
+            if (isWeightVisibleAndRequired) {
+                const weight_str = weight_input_el ? weight_input_el.value.trim() : '';
+                if (weight_str === '') return "Weight is required for all packages for AIR/Courier.";
+                const weight_val = parseFloat(weight_str);
+                if (isNaN(weight_val) || weight_val < 0) return "Enter a valid non-negative weight for all packages.";
+            }
+            return null; 
+        }
+
+        function validateDimFactorInput(factor_str, shipmentType) {
+            if (shipmentType !== 'AIR' && shipmentType !== 'COURIER') return null; 
+            if (factor_str === '') return "Dimensional Factor is required for this shipment type.";
+            const factor_val = parseFloat(factor_str);
+            if (isNaN(factor_val) || factor_val <= 0) return "Please enter a valid positive number for the dimensional factor.";
+            return null; 
+        }
+
+        function validateUnitPriceInput(price_str, shipmentType) {
+            if (shipmentType !== 'AIR') return null; 
+            if (price_str === '') return null; // Optional for AIR
+            const price_val = parseFloat(price_str);
+            if (isNaN(price_val) || price_val < 0) return "Please enter a valid non-negative number for Unit Price.";
+            return null; 
+        }
+
+        function displayMessage(message, type = 'error') {
+            messageArea.innerHTML = `<p class="${type === 'error' ? 'error-message' : 'info-message'}">${message}</p>`;
+            messageArea.classList.remove('hidden'); 
+        }
+
+        function clearMessages() {
+            messageArea.innerHTML = '';
+            messageArea.classList.add('hidden'); 
+        }
+
+        function clearAllResultsAndMessages() {
+            resultsSection.classList.add('hidden'); 
+            cbmResultItem.classList.add('hidden');
+            resultCBM.textContent = ''; 
+
+            combinedWeightsDisplay.classList.add('hidden'); 
+            resultActualWeight.textContent = '';
+            resultDimWeight.textContent = '';
+            resultChargeableWeight.textContent = '';
+
+
+            freightCostResultItem.classList.add('hidden-section');
+            resultFreightCost.textContent = '';
+            containerRecResultItem.classList.add('hidden-section');
+            resultContainerRec.innerHTML = ''; 
+            clearMessages(); 
+        }
+
+        function resetFormInputs() {
+            packageEntriesContainer.innerHTML = ''; 
+            createPackageRow(); 
+            if(dimFactorNumberInput) dimFactorNumberInput.value = getDefaultDimFactor(getSelectedShipmentType(), unitMetricRadio.checked);
+            if(unitPriceInput) unitPriceInput.value = '';
+
+            clearAllResultsAndMessages(); 
+            updateFormulaText(); 
+        }
+
+        function determineOptimalContainerSet(totalCBM) {
+            let currentTotalCBM = parseFloat(totalCBM.toFixed(4));
+            const determinedContainers = [];
+            let containerIdCounter = 1;
+            const MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC = 0.40; // e.g. 40% for the 40DC if 1xHC is used first
+            const MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS = 0.65; // e.g. 65% for each 40DC if splitting
+
+            // PRE-CHECK 1: (62 CBM, 74 CBM] -> Prefer 1x40DC + 1x20DC if 20DC is reasonably filled
+            if (currentTotalCBM > CONTAINER_CAPACITIES['40HC'] && 
+                currentTotalCBM <= (CONTAINER_CAPACITIES['40DC'] + CONTAINER_CAPACITIES['20DC'])) {
+                let remainderIfUsing40DCFirst = currentTotalCBM - CONTAINER_CAPACITIES['40DC'];
+                if (remainderIfUsing40DCFirst > 0 && 
+                    remainderIfUsing40DCFirst <= CONTAINER_CAPACITIES['20DC'] && 
+                    (remainderIfUsing40DCFirst / CONTAINER_CAPACITIES['20DC']) >= 0.25) { // Ensure 20DC is at least 25% full
+                    determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                    determinedContainers.push({ type: '20DC', capacity: CONTAINER_CAPACITIES['20DC'], id: `20DC_${containerIdCounter++}` });
+                    return determinedContainers;
+                }
+            }
+
+            // PRE-CHECK 2: (62 CBM, 104 CBM] -> Prefer 2x40DC over 1x40HC + poorly utilized 40DC
+            if (currentTotalCBM > CONTAINER_CAPACITIES['40HC'] && 
+                currentTotalCBM <= 2 * CONTAINER_CAPACITIES['40DC']) { 
+                
+                let remainderAfterOneHC = currentTotalCBM - CONTAINER_CAPACITIES['40HC'];
+                if (remainderAfterOneHC > 0 && remainderAfterOneHC <= CONTAINER_CAPACITIES['40DC']) { 
+                    let utilOfSecond40DCIfHCFirst = remainderAfterOneHC / CONTAINER_CAPACITIES['40DC'];
+                    
+                    if (utilOfSecond40DCIfHCFirst < MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC) { // If the 40DC after HC is too empty
+                        // Check if splitting into two 40DCs gives better utilization for both
+                        let cbmPer40DCIfSplit = currentTotalCBM / 2;
+                        if (cbmPer40DCIfSplit <= CONTAINER_CAPACITIES['40DC'] && 
+                            (cbmPer40DCIfSplit / CONTAINER_CAPACITIES['40DC']) >= MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS) {
+                            determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                            determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                            return determinedContainers;
+                        }
+                    }
+                }
+            }
+            
+            // Fallback to original logic if pre-checks don't apply or don't result in a return
+            for (const type of CONTAINER_ORDER.slice().reverse()) { 
+                if (currentTotalCBM > 0 && currentTotalCBM <= CONTAINER_CAPACITIES[type]) {
+                    let isBestSingle = true;
+                    for (const smallerType of CONTAINER_ORDER.slice().reverse()) { 
+                        if (CONTAINER_CAPACITIES[smallerType] < CONTAINER_CAPACITIES[type] && currentTotalCBM <= CONTAINER_CAPACITIES[smallerType]) {
+                            isBestSingle = false;
+                            break;
+                        }
+                    }
+                    if (isBestSingle) {
+                        determinedContainers.push({ type: type, capacity: CONTAINER_CAPACITIES[type], id: `${type}_${containerIdCounter++}` });
+                        return determinedContainers; 
+                    }
+                }
+            }
+
+            for (const type of CONTAINER_ORDER) { 
+                const capacity = CONTAINER_CAPACITIES[type];
+
+                if (type === '40HC') {
+                    while (currentTotalCBM >= capacity) {
+                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
+                        currentTotalCBM -= capacity;
+                        currentTotalCBM = parseFloat(currentTotalCBM.toFixed(4));
+                    }
+                    if (currentTotalCBM > 0 && currentTotalCBM <= CONTAINER_CAPACITIES['40HC']) {
+                        let tempRemainder = currentTotalCBM;
+                        let tempSubsequentContainersCount = 0;
+                        
+                        if (tempRemainder > CONTAINER_CAPACITIES['20DC'] && tempRemainder <= CONTAINER_CAPACITIES['40DC']) { 
+                            tempSubsequentContainersCount++;
+                            tempRemainder = 0; 
+                        } else { 
+                            while (tempRemainder >= CONTAINER_CAPACITIES['40DC']) {
+                                tempSubsequentContainersCount++;
+                                tempRemainder -= CONTAINER_CAPACITIES['40DC'];
+                            }
+                        }
+                        while (tempRemainder >= CONTAINER_CAPACITIES['20DC']) {
+                            tempSubsequentContainersCount++;
+                            tempRemainder -= CONTAINER_CAPACITIES['20DC'];
+                        }
+                        if (tempRemainder > 0) {
+                            for (let i = CONTAINER_ORDER.length - 1; i >= 0; i--) {
+                                if (tempRemainder <= CONTAINER_CAPACITIES[CONTAINER_ORDER[i]]) {
+                                    tempSubsequentContainersCount++;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (tempSubsequentContainersCount > 1) { 
+                             determinedContainers.push({ type: '40HC', capacity: CONTAINER_CAPACITIES['40HC'], id: `40HC_${containerIdCounter++}` });
+                             currentTotalCBM = 0; 
+                             break; 
+                        }
+                    }
+                } else if (type === '40DC') {
+                    if (currentTotalCBM > CONTAINER_CAPACITIES['20DC'] && 
+                        currentTotalCBM <= CONTAINER_CAPACITIES['40DC']) {
+                        determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                        currentTotalCBM = 0;
+                        break; 
+                    }
+                    while (currentTotalCBM >= capacity) {
+                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
+                        currentTotalCBM -= capacity;
+                        currentTotalCBM = parseFloat(currentTotalCBM.toFixed(4));
+                    }
+                } else { 
+                    while (currentTotalCBM >= capacity) {
+                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
+                        currentTotalCBM -= capacity;
+                        currentTotalCBM = parseFloat(currentTotalCBM.toFixed(4));
+                    }
+                }
+                if (currentTotalCBM === 0) break;
+            }
+
+            if (currentTotalCBM > 0) {
+                for (let i = CONTAINER_ORDER.length - 1; i >= 0; i--) { 
+                    const type = CONTAINER_ORDER[i];
+                    const capacity = CONTAINER_CAPACITIES[type];
+                    if (currentTotalCBM <= capacity) {
+                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
+                        currentTotalCBM = 0;
+                        break;
+                    }
+                }
+                 if (currentTotalCBM > 0) { 
+                    const smallestType = CONTAINER_ORDER[CONTAINER_ORDER.length - 1];
+                    const numSmallestNeeded = Math.ceil(currentTotalCBM / CONTAINER_CAPACITIES[smallestType]);
+                    for (let k = 0; k < numSmallestNeeded; k++) {
+                        determinedContainers.push({ type: smallestType, capacity: CONTAINER_CAPACITIES[smallestType], id: `${smallestType}_${containerIdCounter++}` });
+                    }
+                }
+            }
+            return determinedContainers;
+        }
+
+        function _packContainers(containersToUse, packagesInput) {
+            let distribution = [];
+            let currentPackagesToPack = JSON.parse(JSON.stringify(packagesInput.filter(p => p.qty > 0)));
+
+            containersToUse.forEach((container) => {
+                let filledCBM = 0;
+                let packagesInThisContainerContents = []; 
+
+                currentPackagesToPack.forEach(pkg => {
+                    if (pkg.qty > 0 && pkg.cbmPerPackage > 0) {
+                        let numCanFitByCBM = 0;
+                        if (container.capacity - filledCBM >= pkg.cbmPerPackage) {
+                            numCanFitByCBM = Math.floor((container.capacity - filledCBM) / pkg.cbmPerPackage);
+                        }
+                        const numToPack = Math.min(numCanFitByCBM, pkg.qty);
+
+                        if (numToPack > 0) {
+                            packagesInThisContainerContents.push({ pkgDetails: JSON.parse(JSON.stringify(pkg)), numPacked: numToPack });
+                            filledCBM += numToPack * pkg.cbmPerPackage;
+                            pkg.qty -= numToPack; 
+                        }
+                    }
+                });
+                distribution.push({
+                    container: container,
+                    packagesContents: packagesInThisContainerContents,
+                    filledCBM: filledCBM
+                });
+            });
+            const unallocatedPackages = currentPackagesToPack.filter(p => p.qty > 0);
+            return { distribution, unallocatedPackages };
+        }
+
+
+        function getDetailedContainerRecommendation(totalCargoCBM, allPackagesInput) {
+            if (totalCargoCBM <= 0) return "No container needed (CBM is zero or less).";
+
+            let recommendedSet = determineOptimalContainerSet(totalCargoCBM);
+            if (recommendedSet.length === 0) return "Could not determine a container recommendation.";
+
+            const originalPackageDetails = JSON.parse(JSON.stringify(allPackagesInput));
+
+            let packingAttempt = _packContainers(recommendedSet, originalPackageDetails);
+            let finalDistribution = packingAttempt.distribution;
+            let finalUnallocatedPackages = packingAttempt.unallocatedPackages;
+            let finalRecommendedSet = [...recommendedSet]; 
+
+            if (finalDistribution.length > 1) {
+                const lastContainerData = finalDistribution[finalDistribution.length - 1];
+                if (lastContainerData.filledCBM > 0 && lastContainerData.filledCBM < 15) { // Threshold for consolidation
+                    const consolidatedSetAttempt = recommendedSet.slice(0, -1);
+                    if (consolidatedSetAttempt.length > 0) {
+                        const consolidatedPackingAttempt = _packContainers(consolidatedSetAttempt, originalPackageDetails);
+                        if (consolidatedPackingAttempt.unallocatedPackages.length === 0) {
+                            finalDistribution = consolidatedPackingAttempt.distribution;
+                            finalUnallocatedPackages = consolidatedPackingAttempt.unallocatedPackages;
+                            finalRecommendedSet = consolidatedSetAttempt; 
+                        }
+                    }
+                }
+            }
+            
+            const containerCounts = {};
+            finalRecommendedSet.forEach(container => {
+                containerCounts[container.type] = (containerCounts[container.type] || 0) + 1;
+            });
+            let summaryString = "<b>Total Containers Recommended: ";
+            let summaryParts = [];
+            CONTAINER_ORDER.forEach(type => { 
+                if (containerCounts[type]) {
+                    summaryParts.push(`${containerCounts[type]} × ${type}`);
+                }
+            });
+            summaryString += summaryParts.join(', ') + "</b>\n\n";
+            
+            let recommendationString = summaryString; 
+            finalDistribution.forEach((distItem, index) => {
+                recommendationString += `<b>Container ${index + 1} (${distItem.container.type}):</b> (Capacity: ${distItem.container.capacity} m³)\n`;
+                if (distItem.packagesContents.length > 0) {
+                    distItem.packagesContents.forEach(packedItem => {
+                        const p = packedItem.pkgDetails;
+                        recommendationString += `  - ${packedItem.numPacked} × Package (${p.l_orig}${p.unit} × ${p.w_orig}${p.unit} × ${p.h_orig}${p.unit})\n`;
+                    });
+                } else {
+                     recommendationString += "  (No packages allocated or remaining packages too large for this container)\n";
+                }
+                recommendationString += `  <i>Filled CBM: ${distItem.filledCBM.toFixed(2)} m³</i>\n\n`;
+            });
+
+            if (finalUnallocatedPackages.length > 0) {
+                recommendationString += "<b>Note: The following packages could not be fully allocated with this heuristic:</b>\n";
+                finalUnallocatedPackages.forEach(pkg => {
+                    recommendationString += `  - ${pkg.qty} × Package (${pkg.l_orig}${pkg.unit} × ${pkg.w_orig}${pkg.unit} × ${pkg.h_orig}${pkg.unit})\n`;
+                });
+            }
+            recommendationString += "\n<small><i>Disclaimer: This is a CBM-based heuristic packing estimation. Actual 3D packing may vary.</i></small>";
+
+            return recommendationString;
+        }
+
+
+        function calculateAndDisplayResults(event) {
+            event.preventDefault(); 
+            clearAllResultsAndMessages(); 
+
+            const shipmentType = getSelectedShipmentType();
+            const isMetric = unitMetricRadio.checked;
+            const packageRows = packageEntriesContainer.rows;
+
+            if (packageRows.length === 0) {
+                displayMessage("Please add at least one package type.", "info");
+                return;
+            }
+
+            let total_cbm_m3_all_packages = 0;
+            let total_actual_w_kg_all_packages = 0;
+            let total_actual_w_lb_all_packages = 0;
+            let total_dim_w_kg_all_packages = 0;
+            let total_dim_w_lb_all_packages = 0;
+            
+            const packageDetailsForFCL = []; 
+
+            for (let i = 0; i < packageRows.length; i++) {
+                const row = packageRows[i];
+                let validationError = validatePackageRow(row, shipmentType); 
+                if (validationError) { displayMessage(validationError, 'error'); return; }
+
+                const l_val = parseFloat(row.querySelector('.package-length').value);
+                const w_val = parseFloat(row.querySelector('.package-width').value);
+                const h_val = parseFloat(row.querySelector('.package-height').value);
+                const q_val = parseInt(row.querySelector('.package-quantity').value);
+
+                const weight_input_el = row.querySelector('.package-weight');
+                const weight_str = (shipmentType === 'AIR' || shipmentType === 'COURIER') && weight_input_el ? weight_input_el.value.trim() : '';
+                const weight_per_package_val = weight_str === '' ? 0 : parseFloat(weight_str);
+
+
+                let l_cm_row = l_val, w_cm_row = w_val, h_cm_row = h_val;
+                if (!isMetric) { 
+                    l_cm_row = l_val * INCH_TO_CM; 
+                    w_cm_row = w_val * INCH_TO_CM; 
+                    h_cm_row = h_val * INCH_TO_CM;
+                }
+                const vol_per_pkg_cbm_row = (l_cm_row * w_cm_row * h_cm_row) / CBM_DIVISOR_CM;
+                total_cbm_m3_all_packages += vol_per_pkg_cbm_row * q_val;
+
+                packageDetailsForFCL.push({
+                    l_orig: l_val, w_orig: w_val, h_orig: h_val, 
+                    unit: isMetric ? 'cm' : 'in',
+                    qty: q_val, 
+                    cbmPerPackage: vol_per_pkg_cbm_row
+                });
+
+
+                if (shipmentType === 'AIR' || shipmentType === 'COURIER') {
+                    if (weight_per_package_val !== null && !isNaN(weight_per_package_val)) {
+                        if (isMetric) { 
+                            total_actual_w_kg_all_packages += weight_per_package_val * q_val;
+                        } else { 
+                            total_actual_w_lb_all_packages += weight_per_package_val * q_val;
+                        }
+                    }
+                }
+            }
+
+            if (isMetric && total_actual_w_kg_all_packages >= 0) { 
+                total_actual_w_lb_all_packages = total_actual_w_kg_all_packages * KG_TO_LB;
+            } else if (!isMetric && total_actual_w_lb_all_packages >= 0) { 
+                total_actual_w_kg_all_packages = total_actual_w_lb_all_packages * LB_TO_KG;
+            }
+
+            resultCBM.textContent = `${total_cbm_m3_all_packages.toFixed(4)} m³`;
+            cbmResultItem.classList.remove('hidden');
+            resultsSection.classList.remove('hidden'); 
+
+            const isAirOrCourier = shipmentType === 'AIR' || shipmentType === 'COURIER';
+            
+            combinedWeightsDisplay.classList.toggle('hidden', !isAirOrCourier);
+
+
+            if (isAirOrCourier) {
+                resultActualWeight.textContent = `${total_actual_w_kg_all_packages.toFixed(2)} kg / ${total_actual_w_lb_all_packages.toFixed(2)} lb`;
+                
+                const dim_factor_str = dimFactorNumberInput.value.trim();
+                let validationError = validateDimFactorInput(dim_factor_str, shipmentType); 
+                if (validationError) { displayMessage(validationError, 'error'); return; }
+                const factor_val = parseFloat(dim_factor_str);
+
+                for (let i = 0; i < packageRows.length; i++) {
+                    const row = packageRows[i];
+                    const l_val_row = parseFloat(row.querySelector('.package-length').value); 
+                    const w_val_row = parseFloat(row.querySelector('.package-width').value);
+                    const h_val_row = parseFloat(row.querySelector('.package-height').value);
+                    const q_val_row = parseInt(row.querySelector('.package-quantity').value);
+
+                    if (isMetric) { 
+                        const dim_w_pkg_kg_row = (l_val_row * w_val_row * h_val_row) / factor_val;
+                        total_dim_w_kg_all_packages += dim_w_pkg_kg_row * q_val_row;
+                    } else { 
+                        const dim_w_pkg_lb_row = (l_val_row * w_val_row * h_val_row) / factor_val;
+                        total_dim_w_lb_all_packages += dim_w_pkg_lb_row * q_val_row;
+                    }
+                }
+                if (isMetric) { 
+                    total_dim_w_lb_all_packages = total_dim_w_kg_all_packages * KG_TO_LB;
+                } else { 
+                    total_dim_w_kg_all_packages = total_dim_w_lb_all_packages * LB_TO_KG;
+                }
+
+                const chargeable_w_kg = Math.max(total_actual_w_kg_all_packages, total_dim_w_kg_all_packages);
+                const chargeable_w_lb = Math.max(total_actual_w_lb_all_packages, total_dim_w_lb_all_packages);
+
+                resultDimWeight.textContent = `${total_dim_w_kg_all_packages.toFixed(2)} kg / ${total_dim_w_lb_all_packages.toFixed(2)} lb`;
+                resultChargeableWeight.textContent = `${chargeable_w_kg.toFixed(2)} kg / ${chargeable_w_lb.toFixed(2)} lb`;
+                
+                if (shipmentType === 'AIR') {
+                    freightCostResultItem.classList.remove('hidden-section'); 
+                    const unit_price_str = unitPriceInput.value.trim();
+                    if (unit_price_str !== '') {
+                        validationError = validateUnitPriceInput(unit_price_str, shipmentType); 
+                        if (validationError) { 
+                            resultFreightCost.textContent = 'N/A'; 
+                            displayMessage(validationError, 'error'); return; 
+                        }
+                        const unit_price_val = parseFloat(unit_price_str);
+                        let totalFreightCost = 0;
+                        if (isMetric) { 
+                            totalFreightCost = chargeable_w_kg * unit_price_val;
+                        } else { 
+                            totalFreightCost = chargeable_w_lb * unit_price_val;
+                        }
+                        resultFreightCost.textContent = `$${totalFreightCost.toFixed(2)}`;
+                    } else {
+                        resultFreightCost.textContent = 'N/A (No unit price)'; 
+                    }
+                } else { 
+                     freightCostResultItem.classList.add('hidden-section');
+                }
+            } else { 
+                freightCostResultItem.classList.add('hidden-section');
+            }
+            
+            if (shipmentType === 'SEA_FCL') {
+                containerRecResultItem.classList.remove('hidden-section');
+                const containerRecommendationText = getDetailedContainerRecommendation(total_cbm_m3_all_packages, packageDetailsForFCL);
+                resultContainerRec.innerHTML = containerRecommendationText; 
+            } else {
+                containerRecResultItem.classList.add('hidden-section');
+            }
+            updateFormulaText(); 
+        }
+
+        // --- Event Listeners Setup ---
+        shipmentTypeRadios.forEach(radio => radio.addEventListener('change', handleShipmentTypeChange));
+        unitMetricRadio.addEventListener('change', () => { handleShipmentTypeChange(); updateFormulaText(); }); 
+        unitImperialRadio.addEventListener('change', () => { handleShipmentTypeChange(); updateFormulaText(); });
+        calculatorForm.addEventListener('submit', calculateAndDisplayResults);
+        resetButton.addEventListener('click', resetFormInputs);
+
+        // --- Initial Page Setup ---
+        document.getElementById('shipmentSeaFCL').checked = true; 
+        createPackageRow(); 
+        handleShipmentTypeChange(); 
+        updateFormulaText(); 
+    </script>
+</body>
+</html>
