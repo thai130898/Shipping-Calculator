@@ -357,7 +357,8 @@
         const CBM_DIVISOR_CM = 1000000; 
         const CBM_DIVISOR_INCH = 61023.7; 
         const CONTAINER_CAPACITIES = { '40HC': 62, '40DC': 52, '20DC': 22 }; 
-        const CONTAINER_ORDER = ['40HC', '40DC', '20DC']; // Order for initial greedy fill
+        const CONTAINER_ORDER = ['40HC', '40DC', '20DC']; 
+        const MIN_CBM_UTILIZATION_TARGETS = {'40HC': 42, '40DC': 31, '20DC': 14}; 
 
         // --- DOM Element References ---
         const calculatorForm = document.getElementById('shippingCalculatorForm');
@@ -646,142 +647,107 @@
             let currentTotalCBM = parseFloat(totalCBM.toFixed(4));
             const determinedContainers = [];
             let containerIdCounter = 1;
-            const MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC = 0.40; // e.g. 40% for the 40DC if 1xHC is used first
-            const MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS = 0.65; // e.g. 65% for each 40DC if splitting
+            let unshippableRemainderDueToMinFill = 0;
+
+            // --- SINGLE CONTAINER CHECK (Min Fill Disregarded for this specific case) ---
+            for (const type of CONTAINER_ORDER.slice().reverse()) { 
+                if (currentTotalCBM > 0 && currentTotalCBM <= CONTAINER_CAPACITIES[type]) {
+                    let isSmallestFit = true;
+                    for (const smallerType of CONTAINER_ORDER.slice().reverse()) {
+                        if (CONTAINER_CAPACITIES[smallerType] < CONTAINER_CAPACITIES[type] && currentTotalCBM <= CONTAINER_CAPACITIES[smallerType]) {
+                            isSmallestFit = false; 
+                            break;
+                        }
+                    }
+                    if (isSmallestFit) {
+                        determinedContainers.push({ type: type, capacity: CONTAINER_CAPACITIES[type], id: `${type}_${containerIdCounter++}` });
+                        return { containers: determinedContainers, unshippableRemainder: 0 };
+                    }
+                }
+            }
+            // --- END OF SINGLE CONTAINER CHECK ---
+
+            currentTotalCBM = parseFloat(totalCBM.toFixed(4)); 
+            determinedContainers.length = 0; 
+            containerIdCounter = 1;
+
 
             // PRE-CHECK 1: (62 CBM, 74 CBM] -> Prefer 1x40DC + 1x20DC if 20DC is reasonably filled
+            const MIN_UTIL_FOR_20DC_IN_COMBO = 0.25; 
             if (currentTotalCBM > CONTAINER_CAPACITIES['40HC'] && 
                 currentTotalCBM <= (CONTAINER_CAPACITIES['40DC'] + CONTAINER_CAPACITIES['20DC'])) {
                 let remainderIfUsing40DCFirst = currentTotalCBM - CONTAINER_CAPACITIES['40DC'];
-                if (remainderIfUsing40DCFirst > 0 && 
+                if (remainderIfUsing40DCFirst >= MIN_CBM_UTILIZATION_TARGETS['20DC'] && 
                     remainderIfUsing40DCFirst <= CONTAINER_CAPACITIES['20DC'] && 
-                    (remainderIfUsing40DCFirst / CONTAINER_CAPACITIES['20DC']) >= 0.25) { // Ensure 20DC is at least 25% full
+                    (remainderIfUsing40DCFirst / CONTAINER_CAPACITIES['20DC']) >= MIN_UTIL_FOR_20DC_IN_COMBO) { 
                     determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
                     determinedContainers.push({ type: '20DC', capacity: CONTAINER_CAPACITIES['20DC'], id: `20DC_${containerIdCounter++}` });
-                    return determinedContainers;
+                    return { containers: determinedContainers, unshippableRemainder: 0 };
                 }
             }
 
             // PRE-CHECK 2: (62 CBM, 104 CBM] -> Prefer 2x40DC over 1x40HC + poorly utilized 40DC
+            // Or prefer 1x40HC + 1x20DC if that's a good fit.
+            const MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC = 0.40; 
+            const MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS = 0.65; 
             if (currentTotalCBM > CONTAINER_CAPACITIES['40HC'] && 
-                currentTotalCBM <= 2 * CONTAINER_CAPACITIES['40DC']) { 
+                currentTotalCBM <= 2 * CONTAINER_CAPACITIES['40DC']) { // Range where 2x40DC might be an option
                 
                 let remainderAfterOneHC = currentTotalCBM - CONTAINER_CAPACITIES['40HC'];
-                if (remainderAfterOneHC > 0 && remainderAfterOneHC <= CONTAINER_CAPACITIES['40DC']) { 
-                    let utilOfSecond40DCIfHCFirst = remainderAfterOneHC / CONTAINER_CAPACITIES['40DC'];
-                    
-                    if (utilOfSecond40DCIfHCFirst < MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC) { // If the 40DC after HC is too empty
-                        // Check if splitting into two 40DCs gives better utilization for both
-                        let cbmPer40DCIfSplit = currentTotalCBM / 2;
-                        if (cbmPer40DCIfSplit <= CONTAINER_CAPACITIES['40DC'] && 
-                            (cbmPer40DCIfSplit / CONTAINER_CAPACITIES['40DC']) >= MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS) {
-                            determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
-                            determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
-                            return determinedContainers;
-                        }
-                    }
+
+                // Option A: 1x40HC + 1x20DC
+                if (remainderAfterOneHC >= MIN_CBM_UTILIZATION_TARGETS['20DC'] && remainderAfterOneHC <= CONTAINER_CAPACITIES['20DC']) {
+                    determinedContainers.push({ type: '40HC', capacity: CONTAINER_CAPACITIES['40HC'], id: `40HC_${containerIdCounter++}` });
+                    determinedContainers.push({ type: '20DC', capacity: CONTAINER_CAPACITIES['20DC'], id: `20DC_${containerIdCounter++}` });
+                    return { containers: determinedContainers, unshippableRemainder: 0 };
+                }
+                
+                // Option B: 1x40HC + 1x40DC (only if 40DC is well utilized)
+                if (remainderAfterOneHC >= MIN_CBM_UTILIZATION_TARGETS['40DC'] && remainderAfterOneHC <= CONTAINER_CAPACITIES['40DC']) {
+                     let utilOfSecond40DCIfHCFirst = remainderAfterOneHC / CONTAINER_CAPACITIES['40DC'];
+                     if (utilOfSecond40DCIfHCFirst >= MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC) {
+                        determinedContainers.push({ type: '40HC', capacity: CONTAINER_CAPACITIES['40HC'], id: `40HC_${containerIdCounter++}` });
+                        determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                        return { containers: determinedContainers, unshippableRemainder: 0 };
+                     }
+                }
+
+                // Option C: 2x40DC (if previous options weren't ideal and this one is)
+                let cbmPer40DCIfSplit = currentTotalCBM / 2;
+                if (cbmPer40DCIfSplit >= MIN_CBM_UTILIZATION_TARGETS['40DC'] && 
+                    cbmPer40DCIfSplit <= CONTAINER_CAPACITIES['40DC'] &&
+                    (cbmPer40DCIfSplit / CONTAINER_CAPACITIES['40DC']) >= MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS) {
+                    determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                    determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                    return { containers: determinedContainers, unshippableRemainder: 0 };
                 }
             }
             
-            // Fallback to original logic if pre-checks don't apply or don't result in a return
-            for (const type of CONTAINER_ORDER.slice().reverse()) { 
-                if (currentTotalCBM > 0 && currentTotalCBM <= CONTAINER_CAPACITIES[type]) {
-                    let isBestSingle = true;
-                    for (const smallerType of CONTAINER_ORDER.slice().reverse()) { 
-                        if (CONTAINER_CAPACITIES[smallerType] < CONTAINER_CAPACITIES[type] && currentTotalCBM <= CONTAINER_CAPACITIES[smallerType]) {
-                            isBestSingle = false;
-                            break;
-                        }
-                    }
-                    if (isBestSingle) {
+            currentTotalCBM = parseFloat(totalCBM.toFixed(4)); 
+            determinedContainers.length = 0; 
+            containerIdCounter = 1;
+            unshippableRemainderDueToMinFill = 0;
+
+
+            while (currentTotalCBM > 0) {
+                let containerAddedThisIteration = false;
+                for (const type of CONTAINER_ORDER) { 
+                    if (currentTotalCBM >= MIN_CBM_UTILIZATION_TARGETS[type]) {
                         determinedContainers.push({ type: type, capacity: CONTAINER_CAPACITIES[type], id: `${type}_${containerIdCounter++}` });
-                        return determinedContainers; 
-                    }
-                }
-            }
-
-            for (const type of CONTAINER_ORDER) { 
-                const capacity = CONTAINER_CAPACITIES[type];
-
-                if (type === '40HC') {
-                    while (currentTotalCBM >= capacity) {
-                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
-                        currentTotalCBM -= capacity;
+                        currentTotalCBM -= Math.min(currentTotalCBM, CONTAINER_CAPACITIES[type]); 
                         currentTotalCBM = parseFloat(currentTotalCBM.toFixed(4));
-                    }
-                    if (currentTotalCBM > 0 && currentTotalCBM <= CONTAINER_CAPACITIES['40HC']) {
-                        let tempRemainder = currentTotalCBM;
-                        let tempSubsequentContainersCount = 0;
-                        
-                        if (tempRemainder > CONTAINER_CAPACITIES['20DC'] && tempRemainder <= CONTAINER_CAPACITIES['40DC']) { 
-                            tempSubsequentContainersCount++;
-                            tempRemainder = 0; 
-                        } else { 
-                            while (tempRemainder >= CONTAINER_CAPACITIES['40DC']) {
-                                tempSubsequentContainersCount++;
-                                tempRemainder -= CONTAINER_CAPACITIES['40DC'];
-                            }
-                        }
-                        while (tempRemainder >= CONTAINER_CAPACITIES['20DC']) {
-                            tempSubsequentContainersCount++;
-                            tempRemainder -= CONTAINER_CAPACITIES['20DC'];
-                        }
-                        if (tempRemainder > 0) {
-                            for (let i = CONTAINER_ORDER.length - 1; i >= 0; i--) {
-                                if (tempRemainder <= CONTAINER_CAPACITIES[CONTAINER_ORDER[i]]) {
-                                    tempSubsequentContainersCount++;
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (tempSubsequentContainersCount > 1) { 
-                             determinedContainers.push({ type: '40HC', capacity: CONTAINER_CAPACITIES['40HC'], id: `40HC_${containerIdCounter++}` });
-                             currentTotalCBM = 0; 
-                             break; 
-                        }
-                    }
-                } else if (type === '40DC') {
-                    if (currentTotalCBM > CONTAINER_CAPACITIES['20DC'] && 
-                        currentTotalCBM <= CONTAINER_CAPACITIES['40DC']) {
-                        determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
-                        currentTotalCBM = 0;
+                        containerAddedThisIteration = true;
                         break; 
                     }
-                    while (currentTotalCBM >= capacity) {
-                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
-                        currentTotalCBM -= capacity;
-                        currentTotalCBM = parseFloat(currentTotalCBM.toFixed(4));
-                    }
-                } else { 
-                    while (currentTotalCBM >= capacity) {
-                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
-                        currentTotalCBM -= capacity;
-                        currentTotalCBM = parseFloat(currentTotalCBM.toFixed(4));
-                    }
                 }
-                if (currentTotalCBM === 0) break;
-            }
-
-            if (currentTotalCBM > 0) {
-                for (let i = CONTAINER_ORDER.length - 1; i >= 0; i--) { 
-                    const type = CONTAINER_ORDER[i];
-                    const capacity = CONTAINER_CAPACITIES[type];
-                    if (currentTotalCBM <= capacity) {
-                        determinedContainers.push({ type: type, capacity: capacity, id: `${type}_${containerIdCounter++}` });
-                        currentTotalCBM = 0;
-                        break;
+                if (!containerAddedThisIteration) {
+                    if (currentTotalCBM > 0) { 
+                        unshippableRemainderDueToMinFill = currentTotalCBM;
                     }
-                }
-                 if (currentTotalCBM > 0) { 
-                    const smallestType = CONTAINER_ORDER[CONTAINER_ORDER.length - 1];
-                    const numSmallestNeeded = Math.ceil(currentTotalCBM / CONTAINER_CAPACITIES[smallestType]);
-                    for (let k = 0; k < numSmallestNeeded; k++) {
-                        determinedContainers.push({ type: smallestType, capacity: CONTAINER_CAPACITIES[smallestType], id: `${smallestType}_${containerIdCounter++}` });
-                    }
+                    break; 
                 }
             }
-            return determinedContainers;
+            return { containers: determinedContainers, unshippableRemainder: unshippableRemainderDueToMinFill };
         }
 
         function _packContainers(containersToUse, packagesInput) {
@@ -821,25 +787,35 @@
         function getDetailedContainerRecommendation(totalCargoCBM, allPackagesInput) {
             if (totalCargoCBM <= 0) return "No container needed (CBM is zero or less).";
 
-            let recommendedSet = determineOptimalContainerSet(totalCargoCBM);
-            if (recommendedSet.length === 0) return "Could not determine a container recommendation.";
+            const { containers: initialRecommendedSet, unshippableRemainder } = determineOptimalContainerSet(totalCargoCBM);
+
+            if (initialRecommendedSet.length === 0 && unshippableRemainder === 0) {
+                 return "Could not determine a container recommendation (or CBM is too low for minimums).";
+            }
+             if (initialRecommendedSet.length === 0 && unshippableRemainder > 0) {
+                return `No containers meet minimum fill requirements. Remaining CBM: ${unshippableRemainder.toFixed(2)} m³ (below min. for 20DC).`;
+            }
+
 
             const originalPackageDetails = JSON.parse(JSON.stringify(allPackagesInput));
-
-            let packingAttempt = _packContainers(recommendedSet, originalPackageDetails);
+            let packingAttempt = _packContainers(initialRecommendedSet, originalPackageDetails);
+            
             let finalDistribution = packingAttempt.distribution;
             let finalUnallocatedPackages = packingAttempt.unallocatedPackages;
-            let finalRecommendedSet = [...recommendedSet]; 
+            let finalRecommendedSet = [...initialRecommendedSet]; 
 
             if (finalDistribution.length > 1) {
                 const lastContainerData = finalDistribution[finalDistribution.length - 1];
-                if (lastContainerData.filledCBM > 0 && lastContainerData.filledCBM < 15) { // Threshold for consolidation
-                    const consolidatedSetAttempt = recommendedSet.slice(0, -1);
+                const lastContainerMinFill = MIN_CBM_UTILIZATION_TARGETS[lastContainerData.container.type];
+                if (lastContainerData.filledCBM > 0 && 
+                    lastContainerData.filledCBM < 15 && 
+                    lastContainerData.filledCBM < (lastContainerMinFill * 0.75) ) { 
+                    const consolidatedSetAttempt = initialRecommendedSet.slice(0, -1);
                     if (consolidatedSetAttempt.length > 0) {
                         const consolidatedPackingAttempt = _packContainers(consolidatedSetAttempt, originalPackageDetails);
-                        if (consolidatedPackingAttempt.unallocatedPackages.length === 0) {
+                        if (consolidatedPackingAttempt.unallocatedPackages.length === 0) { 
                             finalDistribution = consolidatedPackingAttempt.distribution;
-                            finalUnallocatedPackages = consolidatedPackingAttempt.unallocatedPackages;
+                            finalUnallocatedPackages = []; 
                             finalRecommendedSet = consolidatedSetAttempt; 
                         }
                     }
@@ -857,7 +833,17 @@
                     summaryParts.push(`${containerCounts[type]} × ${type}`);
                 }
             });
-            summaryString += summaryParts.join(', ') + "</b>\n\n";
+            if (summaryParts.length === 0 && unshippableRemainder > 0) { 
+                 summaryString += "None (see notes below)";
+            } else if (summaryParts.length === 0 && initialRecommendedSet.length > 0 && finalRecommendedSet.length === 0) { 
+                 summaryString += "None (after consolidation attempts, CBM may be unshippable or too low for minimums)";
+            } else if (summaryParts.length === 0 && finalRecommendedSet.length === 0) {
+                 summaryString += "None (CBM may be unshippable or too low for minimums)";
+            }
+            else {
+                 summaryString += summaryParts.join(', ');
+            }
+            summaryString += "</b>\n\n";
             
             let recommendationString = summaryString; 
             finalDistribution.forEach((distItem, index) => {
@@ -868,18 +854,22 @@
                         recommendationString += `  - ${packedItem.numPacked} × Package (${p.l_orig}${p.unit} × ${p.w_orig}${p.unit} × ${p.h_orig}${p.unit})\n`;
                     });
                 } else {
-                     recommendationString += "  (No packages allocated or remaining packages too large for this container)\n";
+                     recommendationString += "  (No packages allocated to this container by heuristic)\n";
                 }
                 recommendationString += `  <i>Filled CBM: ${distItem.filledCBM.toFixed(2)} m³</i>\n\n`;
             });
 
             if (finalUnallocatedPackages.length > 0) {
-                recommendationString += "<b>Note: The following packages could not be fully allocated with this heuristic:</b>\n";
+                recommendationString += "<b>Note: The following packages could not be fully allocated by the packing heuristic:</b>\n";
                 finalUnallocatedPackages.forEach(pkg => {
                     recommendationString += `  - ${pkg.qty} × Package (${pkg.l_orig}${pkg.unit} × ${pkg.w_orig}${pkg.unit} × ${pkg.h_orig}${pkg.unit})\n`;
                 });
+                 recommendationString += "\n";
             }
-            recommendationString += "\n<small><i>Disclaimer: This is a CBM-based heuristic packing estimation. Actual 3D packing may vary.</i></small>";
+            if (unshippableRemainder > 0) {
+                recommendationString += `<b>Additionally, ${unshippableRemainder.toFixed(2)} CBM could not be allocated as it's below the minimum fill requirement for any container.</b>\n\n`;
+            }
+            recommendationString += "<small><i>Disclaimer: This is a CBM-based heuristic packing estimation. Actual 3D packing may vary.</i></small>";
 
             return recommendationString;
         }
