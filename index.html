@@ -148,10 +148,42 @@
             background-color: #14b8a6; 
             text-align: left; 
         }
-        #resultContainerRec {
-            white-space: pre-wrap; 
-            font-size: 0.875rem; 
-            line-height: 1.4;
+        /* Styling for the table within container recommendations */
+        #resultContainerRecTable {
+            width: 100%;
+            margin-top: 0.5rem;
+            border-collapse: collapse;
+            font-size: 0.8rem; 
+            color: white; 
+        }
+        #resultContainerRecTable th, #resultContainerRecTable td {
+            border: 1px solid rgba(255, 255, 255, 0.3); 
+            padding: 0.4rem 0.6rem;
+            text-align: left;
+            vertical-align: top;
+        }
+        #resultContainerRecTable th {
+            background-color: rgba(0,0,0,0.1); 
+            font-weight: 600;
+        }
+        #resultContainerRecTable ul {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+        #resultContainerRecTable ul li {
+            margin-bottom: 0.1rem;
+        }
+        .container-rec-summary { /* For the "Total Containers Recommended: X x TYPE" line */
+            font-weight: bold;
+            margin-bottom: 0.75rem; 
+            display: block; 
+        }
+        .disclaimer-text {
+            font-size: 0.75rem;
+            color: #4b5563; /* Tailwind gray-600 */
+            margin-top: 1rem;
+            text-align: center;
         }
 
 
@@ -344,8 +376,15 @@
                 <div id="containerRecResultItem" class="result-item-box result-item-container-rec hidden-section"> 
                     <span class="result-label">Recommended Container(s):</span>
                     <span class="result-formula">Heuristic packing based on CBM & package list</span>
-                    <div id="resultContainerRec" class="result-value"></div> </div>
+                    <div id="resultContainerRec" class="result-value"></div> 
+                </div>
             </div>
+        </div>
+        <div id="fclDisclaimer" class="disclaimer-text hidden">
+            <p><strong>Note on FCL Container Utilization:</strong></p>
+            <p>Approx. Max Usable CBM: 20DC (~22m³), 40DC (~52m³), 40HC (~62m³).</p>
+            <p>Recommended Min. Fill for FCL rates: 20DC (~14m³), 40DC (~31m³), 40HC (~42m³).</p>
+            <p>The calculator attempts to optimize based on these, but actual packing and carrier specifics may vary.</p>
         </div>
     </div>
 
@@ -385,6 +424,8 @@
 
         const messageArea = document.getElementById('messageArea'); 
         const resultsSection = document.getElementById('resultsSection'); 
+        const fclDisclaimerDiv = document.getElementById('fclDisclaimer');
+
 
         const cbmResultItem = document.getElementById('cbmResultItem');
         const resultCBM = document.getElementById('resultCBM');
@@ -480,10 +521,10 @@
                 } else { 
                      dimFactorNote.textContent = isMetric ? "Common factor for Courier: 5000 cm³/kg." : "Common factor for Courier: 139 inch³/lb.";
                 }
-            } else {
-                dimFactorInputGroup.classList.add('hidden-section');
-                unitPriceInputGroup.classList.add('hidden-section');
             }
+            // Show/hide FCL disclaimer
+            fclDisclaimerDiv.classList.toggle('hidden', shipmentType !== 'SEA_FCL');
+
             updateInputPlaceholdersAndFactors(); 
             updateFormulaText(); 
         }
@@ -685,41 +726,46 @@
                     return { containers: determinedContainers, unshippableRemainder: 0 };
                 }
             }
-
-            // PRE-CHECK 2: (62 CBM, 104 CBM] -> Prefer 2x40DC over 1x40HC + poorly utilized 40DC
-            // Or prefer 1x40HC + 1x20DC if that's a good fit.
-            const MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC = 0.40; 
-            const MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS = 0.65; 
-            if (currentTotalCBM > CONTAINER_CAPACITIES['40HC'] && 
-                currentTotalCBM <= 2 * CONTAINER_CAPACITIES['40DC']) { // Range where 2x40DC might be an option
-                
-                let remainderAfterOneHC = currentTotalCBM - CONTAINER_CAPACITIES['40HC'];
-
-                // Option A: 1x40HC + 1x20DC
-                if (remainderAfterOneHC >= MIN_CBM_UTILIZATION_TARGETS['20DC'] && remainderAfterOneHC <= CONTAINER_CAPACITIES['20DC']) {
+            
+            // PRE-CHECK 2 (REVISED for LCL avoidance): (62 CBM, ~84 CBM] -> Prefer 1x40HC + 1x20DC if 20DC is well-utilized
+            // And (62 CBM, 104 CBM] -> Prefer 2x40DC if it avoids LCL and provides good utilization
+            if (currentTotalCBM > CONTAINER_CAPACITIES['40HC'] && currentTotalCBM <= (CONTAINER_CAPACITIES['40HC'] + CONTAINER_CAPACITIES['20DC'] + 5) ) { 
+                 let remainderAfterOneHC = currentTotalCBM - CONTAINER_CAPACITIES['40HC'];
+                 if (remainderAfterOneHC >= MIN_CBM_UTILIZATION_TARGETS['20DC'] && remainderAfterOneHC <= CONTAINER_CAPACITIES['20DC']) {
                     determinedContainers.push({ type: '40HC', capacity: CONTAINER_CAPACITIES['40HC'], id: `40HC_${containerIdCounter++}` });
                     determinedContainers.push({ type: '20DC', capacity: CONTAINER_CAPACITIES['20DC'], id: `20DC_${containerIdCounter++}` });
                     return { containers: determinedContainers, unshippableRemainder: 0 };
-                }
-                
-                // Option B: 1x40HC + 1x40DC (only if 40DC is well utilized)
-                if (remainderAfterOneHC >= MIN_CBM_UTILIZATION_TARGETS['40DC'] && remainderAfterOneHC <= CONTAINER_CAPACITIES['40DC']) {
-                     let utilOfSecond40DCIfHCFirst = remainderAfterOneHC / CONTAINER_CAPACITIES['40DC'];
-                     if (utilOfSecond40DCIfHCFirst >= MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC) {
-                        determinedContainers.push({ type: '40HC', capacity: CONTAINER_CAPACITIES['40HC'], id: `40HC_${containerIdCounter++}` });
-                        determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
-                        return { containers: determinedContainers, unshippableRemainder: 0 };
-                     }
+                 }
+            }
+            
+            const MIN_UTIL_THRESHOLD_FOR_SECOND_OF_TWO_AFTER_HC = 0.40; 
+            const MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS = 0.65; 
+            if (currentTotalCBM > CONTAINER_CAPACITIES['40HC'] && currentTotalCBM <= 2 * CONTAINER_CAPACITIES['40DC']) {
+                let remainderAfterOneHC = currentTotalCBM - CONTAINER_CAPACITIES['40HC'];
+                let optionHCPlusNextIsPoor = false;
+
+                if (remainderAfterOneHC > 0) {
+                    // Check if remainder fits poorly in a 40DC
+                    let fitsPoorlyIn40DC = (remainderAfterOneHC <= CONTAINER_CAPACITIES['40DC'] && remainderAfterOneHC < MIN_CBM_UTILIZATION_TARGETS['40DC']);
+                    // Check if remainder fits poorly in a 20DC (or not at all)
+                    let fitsPoorlyOrNotIn20DC = !(remainderAfterOneHC >= MIN_CBM_UTILIZATION_TARGETS['20DC'] && remainderAfterOneHC <= CONTAINER_CAPACITIES['20DC']);
+                    
+                    // If it's too big for a single 40DC OR it fits a 40DC poorly AND it also doesn't fit a 20DC well
+                    if (remainderAfterOneHC > CONTAINER_CAPACITIES['40DC'] || (fitsPoorlyIn40DC && fitsPoorlyOrNotIn20DC) ) {
+                        optionHCPlusNextIsPoor = true;
+                    }
                 }
 
-                // Option C: 2x40DC (if previous options weren't ideal and this one is)
-                let cbmPer40DCIfSplit = currentTotalCBM / 2;
-                if (cbmPer40DCIfSplit >= MIN_CBM_UTILIZATION_TARGETS['40DC'] && 
-                    cbmPer40DCIfSplit <= CONTAINER_CAPACITIES['40DC'] &&
-                    (cbmPer40DCIfSplit / CONTAINER_CAPACITIES['40DC']) >= MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS) {
-                    determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
-                    determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
-                    return { containers: determinedContainers, unshippableRemainder: 0 };
+
+                if (optionHCPlusNextIsPoor) {
+                    let cbmPer40DCIfSplit = currentTotalCBM / 2;
+                    if (cbmPer40DCIfSplit >= MIN_CBM_UTILIZATION_TARGETS['40DC'] && 
+                        cbmPer40DCIfSplit <= CONTAINER_CAPACITIES['40DC'] &&
+                        (cbmPer40DCIfSplit / CONTAINER_CAPACITIES['40DC']) >= MIN_UTIL_FOR_SPLIT_INTO_TWO_DCS) {
+                        determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                        determinedContainers.push({ type: '40DC', capacity: CONTAINER_CAPACITIES['40DC'], id: `40DC_${containerIdCounter++}` });
+                        return { containers: determinedContainers, unshippableRemainder: 0 };
+                    }
                 }
             }
             
@@ -807,6 +853,7 @@
             if (finalDistribution.length > 1) {
                 const lastContainerData = finalDistribution[finalDistribution.length - 1];
                 const lastContainerMinFill = MIN_CBM_UTILIZATION_TARGETS[lastContainerData.container.type];
+                // Stricter condition for consolidation: last container very empty AND significantly below its own min target
                 if (lastContainerData.filledCBM > 0 && 
                     lastContainerData.filledCBM < 15 && 
                     lastContainerData.filledCBM < (lastContainerMinFill * 0.75) ) { 
@@ -826,7 +873,7 @@
             finalRecommendedSet.forEach(container => {
                 containerCounts[container.type] = (containerCounts[container.type] || 0) + 1;
             });
-            let summaryString = "<b>Total Containers Recommended: ";
+            let summaryString = "<span class='container-rec-summary'>Total Containers Recommended: "; // Use span for easy targeting
             let summaryParts = [];
             CONTAINER_ORDER.forEach(type => { 
                 if (containerCounts[type]) {
@@ -843,33 +890,43 @@
             else {
                  summaryString += summaryParts.join(', ');
             }
-            summaryString += "</b>\n\n";
+            summaryString += "</span>"; // Close span
             
-            let recommendationString = summaryString; 
+            let tableHTML = "<table id='resultContainerRecTable'><thead><tr><th>Container #</th><th>Type</th><th>Capacity</th><th>Packages Loaded</th><th>Filled CBM</th></tr></thead><tbody>";
             finalDistribution.forEach((distItem, index) => {
-                recommendationString += `<b>Container ${index + 1} (${distItem.container.type}):</b> (Capacity: ${distItem.container.capacity} m³)\n`;
+                tableHTML += `<tr>`;
+                tableHTML += `<td>${index + 1}</td>`;
+                tableHTML += `<td>${distItem.container.type}</td>`;
+                tableHTML += `<td>${distItem.container.capacity} m³</td>`;
+                let packagesListHTML = "<ul>";
                 if (distItem.packagesContents.length > 0) {
                     distItem.packagesContents.forEach(packedItem => {
                         const p = packedItem.pkgDetails;
-                        recommendationString += `  - ${packedItem.numPacked} × Package (${p.l_orig}${p.unit} × ${p.w_orig}${p.unit} × ${p.h_orig}${p.unit})\n`;
+                        packagesListHTML += `<li>${packedItem.numPacked} × (${p.l_orig}${p.unit} × ${p.w_orig}${p.unit} × ${p.h_orig}${p.unit})</li>`;
                     });
                 } else {
-                     recommendationString += "  (No packages allocated to this container by heuristic)\n";
+                    packagesListHTML += "<li>(No packages allocated)</li>";
                 }
-                recommendationString += `  <i>Filled CBM: ${distItem.filledCBM.toFixed(2)} m³</i>\n\n`;
+                packagesListHTML += "</ul>";
+                tableHTML += `<td>${packagesListHTML}</td>`;
+                tableHTML += `<td>${distItem.filledCBM.toFixed(2)} m³</td>`;
+                tableHTML += `</tr>`;
             });
+            tableHTML += "</tbody></table>";
+
+            let recommendationString = summaryString + tableHTML; // Combine summary and table
 
             if (finalUnallocatedPackages.length > 0) {
-                recommendationString += "<b>Note: The following packages could not be fully allocated by the packing heuristic:</b>\n";
+                recommendationString += "<p class='mt-2 text-sm'><b>Note: The following packages could not be fully allocated by the packing heuristic:</b><br>";
                 finalUnallocatedPackages.forEach(pkg => {
-                    recommendationString += `  - ${pkg.qty} × Package (${pkg.l_orig}${pkg.unit} × ${pkg.w_orig}${pkg.unit} × ${pkg.h_orig}${pkg.unit})\n`;
+                    recommendationString += `  - ${pkg.qty} × Package (${pkg.l_orig}${pkg.unit} × ${pkg.w_orig}${pkg.unit} × ${pkg.h_orig}${pkg.unit})<br>`;
                 });
-                 recommendationString += "\n";
+                recommendationString += "</p>";
             }
             if (unshippableRemainder > 0) {
-                recommendationString += `<b>Additionally, ${unshippableRemainder.toFixed(2)} CBM could not be allocated as it's below the minimum fill requirement for any container.</b>\n\n`;
+                recommendationString += `<p class='mt-2 text-sm'><b>Additionally, ${unshippableRemainder.toFixed(2)} CBM could not be allocated as it's below the minimum fill requirement for any container.</b></p>`;
             }
-            recommendationString += "<small><i>Disclaimer: This is a CBM-based heuristic packing estimation. Actual 3D packing may vary.</i></small>";
+            recommendationString += "<p class='mt-2 text-xs italic'>Disclaimer: This is a CBM-based heuristic packing estimation. Actual 3D packing may vary.</p>";
 
             return recommendationString;
         }
@@ -1018,10 +1075,12 @@
             
             if (shipmentType === 'SEA_FCL') {
                 containerRecResultItem.classList.remove('hidden-section');
+                fclDisclaimerDiv.classList.remove('hidden'); // Show FCL disclaimer
                 const containerRecommendationText = getDetailedContainerRecommendation(total_cbm_m3_all_packages, packageDetailsForFCL);
                 resultContainerRec.innerHTML = containerRecommendationText; 
             } else {
                 containerRecResultItem.classList.add('hidden-section');
+                fclDisclaimerDiv.classList.add('hidden'); // Hide FCL disclaimer
             }
             updateFormulaText(); 
         }
